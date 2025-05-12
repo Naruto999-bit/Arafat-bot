@@ -1,68 +1,46 @@
-const moment = require('moment-timezone');
+const axios = require("axios");
+const fs = require("fs-extra");
 
 module.exports = {
   config: {
     name: "uptime",
-    aliases:["up", "upt"],
-    version: "1.7",
-    author: "𝗦𝗵𝗔𝗻",
+    aliases: ["up", "upt"],
+    version: "2.0",
+    author: "Arafat", // চাইলে নিজের নাম দিও
+    countDown: 5,
     role: 0,
-    shortDescription: {
-      en: "Get stylish bot stats and uptime!"
-    },
-    longDescription: {
-      en: "Displays bot uptime, user, thread stats, and total messages processed in a modern and visually engaging style."
-    },
-    category: "𝗜𝗡𝗙𝗢",
+    shortDescription: "Show bot uptime",
+    longDescription: "Display the current uptime, ping, and status image",
+    category: "system",
     guide: {
-      en: "Use {p}uptime to display the bot's stats in style."
+      en: "{pn}"
     }
   },
-  onStart: async function ({ api, event, usersData, threadsData, messageCount }) {
-    try {
-      const allUsers = await usersData.getAll();
-      const allThreads = await threadsData.getAll();
-      const uptime = process.uptime();
 
-      // Calculate formatted uptime
-      const now = moment().tz('Asia/Dhaka');
-      const date = now.format('MMMM Do YYYY');
-      const time = now.format('h:mm:ss A');
-      const days = Math.floor(uptime / 86400);
-      const hours = Math.floor((uptime % 86400) / 3600);
-      const minutes = Math.floor((uptime % 3600) / 60);
-      const seconds = Math.floor(uptime % 60);
+  onStart: async function ({ message, event }) {
+    const uptime = process.uptime();
+    const days = Math.floor(uptime / (60 * 60 * 24));
+    const hours = Math.floor((uptime / (60 * 60)) % 24);
+    const minutes = Math.floor((uptime / 60) % 60);
+    const seconds = Math.floor(uptime % 60);
 
-      const uptimeString = `${days} days, ${hours} hours, ${minutes} minutes, ${seconds} seconds`;
+    const ping = Date.now() - event.timestamp;
 
-      // Active threads (threads with activity)
-      const activeThreads = allThreads.filter(thread => thread.messageCount > 0).length;
+    const imageUrl = "https://i.imgur.com/W9bJpMe.jpg"; // এখানে তোমার পছন্দের ছবি দাও
+    const path = __dirname + "/cache/uptime.jpg";
 
-      // Total messages processed
-      const totalMessages = messageCount || 0; // Replace with actual message count logic if needed
+    const img = await axios.get(imageUrl, { responseType: "arraybuffer" });
+    fs.writeFileSync(path, Buffer.from(img.data, "binary"));
 
-      // Stylish message design
-      const message = `
- ┏━━━━━━━━━━━━━━━━━━━━━━━━━┓
-   💫《 ⩸__𝐙𝐞𝐫𝐨 𝐓𝐰𝐨 𝐁𝐨𝐭 𝐈𝐧𝐟𝐨𝐫𝐦𝐚𝐭𝐢𝐨𝐧__⩸ 》💫
-  🤖..𝐵𝑜𝑡 𝑁𝑎𝑚𝑒 : ⩸__${global.GoatBot.config.nickNameBot}__⩸
-  👾 𝐵𝑜𝑡 𝑆𝑦𝑠𝑡𝑒𝑚 𝑃𝑟𝑒𝑓𝑖𝑥 : ${global.GoatBot.config.prefix}
-  ⏰ 𝑇𝑖𝑚𝑒: ${time}
-  📆 𝐷𝑎𝑡𝑒: ${date}
-  📛 𝐵𝑜𝑡 𝐼𝑠 𝑅𝑢𝑛𝑛𝑖𝑛𝑔 𝐹𝑜𝑟: ${uptimeString}
-  🙋 𝑇𝑜𝑡𝑎𝑙 𝑈𝑠𝑒𝑟𝑠: ${allUsers.length}
-  💬 𝑇𝑜𝑡𝑎𝑙 𝑇ℎ𝑟𝑒𝑎𝑑𝑠: ${allThreads.length}
-  🔥 𝐴𝑐𝑡𝑖𝑣𝑒 𝑇ℎ𝑟𝑒𝑎𝑑𝑠: ${activeThreads}
-  📨 𝑇𝑜𝑡𝑎𝑙 𝑀𝑒𝑠𝑠𝑎𝑔𝑒: ${totalMessages}
-  ━━━━━━━━━━━━━━━━━━━
- 💡 𝐾𝑒𝑒𝑝 𝑇ℎ𝑒 𝑉𝑖𝑏𝑒𝑠 𝐺𝑜𝑖𝑛𝑔!
-┗━━━━━━━━━━━━━━━━━━━━━━━━━┛
-      `;
+    message.send({
+      body:
+`━━ BOT STATUS ━━
+⏳ Uptime: ${days}d ${hours}h ${minutes}m ${seconds}s
+⚡ Ping: ${ping}ms
+👑 Owner: Arafat
 
-      api.sendMessage(message.trim(), event.threadID);
-    } catch (error) {
-      console.error(error);
-      api.sendMessage("An error occurred while retrieving bot stats.", event.threadID);
-    }
+Bot is alive and ready to rule!`,
+      attachment: fs.createReadStream(path)
+    }, () => fs.unlinkSync(path));
   }
 };
