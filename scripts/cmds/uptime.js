@@ -26,7 +26,7 @@ module.exports = {
 
     const ping = Date.now() - event.timestamp;
 
-    const imageUrl = "https://i.imgur.com/W9bJpMe.jpg"; // এখানে তোমার পছন্দের ছবি দাও
+    const imageUrl = "https://i.imgur.com/NmE5wSm.jpeg"; // এখানে তোমার পছন্দের ছবি দাও
     const path = __dirname + "/cache/uptime.jpg";
 
     const img = await axios.get(imageUrl, { responseType: "arraybuffer" });
