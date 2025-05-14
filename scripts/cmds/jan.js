@@ -64,7 +64,7 @@ module.exports = {
       "𝗜 𝗵𝗮𝘁𝗲 𝘆𝗼𝘂__😏😏",
     ];
 
-    const mahmuds = ["jan", "jaan", "জান", "nezuko"," Arafat","love"];
+    const mahmuds = ["jan", "jaan", "জান", "nezuko"," Arafat","love","bby","bot","babu","বেবি"];
     let message = event.body ? event.body.toLowerCase() : "";
     const words = message.split(" ");
     const wordCount = words.length;
