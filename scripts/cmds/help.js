@@ -59,10 +59,10 @@ module.exports = {
       const totalCommands = commands.size;
       msg += `\n𝗖𝘂𝗿𝗿𝗲𝗻𝘁𝗹𝘆, 𝘁𝗵𝗲 𝗯𝗼𝘁 𝗵𝗮𝘀 ${totalCommands} 𝗰𝗼𝗺𝗺𝗮𝗻𝗱𝘀 𝘁𝗵𝗮𝘁 𝗰𝗮𝗻 𝗯𝗲 𝘂𝘀𝗲𝗱\n`;
       msg += `\n𝗧𝘆𝗽𝗲 ${prefix}𝗵𝗲𝗹𝗽 𝗰𝗺𝗱𝗡𝗮𝗺𝗲 𝘁𝗼 𝘃𝗶𝗲𝘄 𝘁𝗵𝗲 𝗱𝗲𝘁𝗮𝗶𝗹𝘀 𝗼𝗳 𝘁𝗵𝗮𝘁 𝗰𝗼𝗺𝗺𝗮𝗻𝗱\n`;
-      msg += `\n🫧𝘽𝙊𝙏 𝙉𝘼𝙈𝙀🫧: 𝚣𝚎𝚛𝚘 𝚃𝚠𝚘 𝚒𝚜 𝙷𝚎𝚊𝚛 🦋`;
-      msg += `\n🔹 𝘽𝙊𝙏 𝙊𝙒𝙉𝙀𝙍 🔹Ⓐⓡⓐⓕⓐⓣ`;
+      msg += `\n🫧𝘽𝙊𝙏 𝙉𝘼𝙈𝙀🫧: ❀ 𝚢𝚘𝚞 𝚁 𝙲𝚑𝚘𝚌𝚘𝚕𝚊𝚝𝚎 🍫 ❀`;
+      msg += `\n🔹 𝘽𝙊𝙏 𝙊𝙒𝙉𝙀𝙍 🔹`;
       msg += `\n 	 					`;
-      msg += `\n~𝗔𝗗𝗠𝗜𝗡 𝙉𝘼𝙈𝙀:✰ Ⓢⓐⓑⓤⓙ✰`;
+      msg += `\n~𝙉𝘼𝙈𝙀:✰ Ⓐⓡⓐⓕⓐⓣ ✰`;
       msg += `\n~𝙁𝘽:https://m.facebook.com/arafatas602`;
 
       await message.reply({
