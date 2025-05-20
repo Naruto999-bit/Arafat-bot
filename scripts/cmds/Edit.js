@@ -1,81 +1,73 @@
-const axios = require('axios');
-const sharp = require('sharp');
-const fs = require('fs');
-const path = require('path');
-
-// ইন-মেমোরি ইউজারের শেষ কমান্ড
 const userCommands = {};
 
 module.exports = {
   name: "edit",
   aliases: ["editimg"],
-  description: "Send command like /edit grayscale then send image to edit",
-  usage: "/edit [grayscale|rotate|blur]",
-  async execute({ msg, sock, args }) {
-    const senderId = msg.key.remoteJid;
+  description: "Set an image editing command (grayscale, rotate, blur)",
+  usage: "/edit grayscale",
+  cooldown: 3,
+  async execute({ api, event, args }) {
     const command = args[0]?.toLowerCase();
 
     if (!command || !["grayscale", "rotate", "blur"].includes(command)) {
-      return sock.sendMessage(senderId, { text: "Please specify a valid command: grayscale, rotate, or blur.\nExample: /edit grayscale" }, { quoted: msg });
+      return api.sendMessage(
+        "দয়া করে একটি কমান্ড লিখুন:\n- grayscale\n- rotate\n- blur\n\nউদাহরণ: /edit grayscale",
+        event.threadID,
+        event.messageID
+      );
     }
 
-    userCommands[senderId] = command;
-
-    return sock.sendMessage(senderId, { text: `Okay, send me an image to apply: ${command}` }, { quoted: msg });
+    // Save user command to memory
+    userCommands[event.senderID] = command;
+    return api.sendMessage(`ঠিক আছে! এখন একটি ছবি পাঠাও, আমি ${command} প্রয়োগ করব।`, event.threadID, event.messageID);
   },
 
-  // ছবির মেসেজগুলো এখানে প্রসেস করো
-  async onImage({ msg, sock }) {
-    const senderId = msg.key.remoteJid;
-    const command = userCommands[senderId] || "grayscale"; // ডিফল্ট গ্রেস্কেল
-
-    if (!msg.message.imageMessage) {
-      return;
-    }
+  // imageHandler এভাবে আলাদা করে export করো
+  imageHandler: async function ({ api, event, download }) {
+    const command = userCommands[event.senderID] || "grayscale";
 
     try {
-      // ছবি ডাউনলোড করা
-      const buffer = await sock.downloadMediaMessage(msg);
+      const imagePath = await download(); // default: downloads image and returns path
+      const sharp = require("sharp");
+      const fs = require("fs");
 
-      const inputPath = path.join(__dirname, "input.jpg");
-      const outputPath = path.join(__dirname, "output.jpg");
+      const editedPath = __dirname + "/edited_" + Date.now() + ".jpg";
 
-      fs.writeFileSync(inputPath, buffer);
-
-      let edit = sharp(inputPath);
+      let image = sharp(imagePath);
 
       switch (command) {
         case "grayscale":
-          edit = edit.grayscale();
+          image = image.grayscale();
           break;
         case "rotate":
-          edit = edit.rotate(90);
+          image = image.rotate(90);
           break;
         case "blur":
-          edit = edit.blur(5);
+          image = image.blur(5);
           break;
       }
 
-      await edit.toFile(outputPath);
+      await image.toFile(editedPath);
 
-      const editedBuffer = fs.readFileSync(outputPath);
+      await api.sendMessage(
+        {
+          body: `এখানে তোমার ${command} করা ছবি!`,
+          attachment: fs.createReadStream(editedPath),
+        },
+        event.threadID,
+        () => {
+          // Cleanup
+          fs.unlinkSync(imagePath);
+          fs.unlinkSync(editedPath);
+        },
+        event.messageID
+      );
 
-      // ছবি সেন্ড করা
-      await sock.sendMessage(senderId, {
-        image: editedBuffer,
-        caption: `Here is your ${command} edited image!`
-      }, { quoted: msg });
-
-      // ইউজারের কমান্ড রিসেট
-      delete userCommands[senderId];
-
-      // টেম্প ফাইল ডিলিট
-      fs.unlinkSync(inputPath);
-      fs.unlinkSync(outputPath);
+      delete userCommands[event.senderID];
 
     } catch (err) {
-      console.error("Image processing error:", err);
-      await sock.sendMessage(senderId, { text: "Failed to process the image." }, { quoted: msg });
+      console.error(err);
+      api.sendMessage("ছবি প্রসেস করতে সমস্যা হয়েছে!", event.threadID, event.messageID);
     }
   }
 };
