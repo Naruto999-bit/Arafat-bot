@@ -1,94 +1,125 @@
-const axios = require("axios");
-const fs = require("fs-extra");
-const FormData = require("form-data");
+const express = require('express');
+const bodyParser = require('body-parser');
+const request = require('request');
+const axios = require('axios');
+const sharp = require('sharp');
+const fs = require('fs');
+const path = require('path');
 
-module.exports = {
-  config: {
-    name: "edit",
-    version: "1.0.1",
-    hasPermssion: 0,
-    credits: "Arafat Da",
-    description: "ছবিতে ইনস্ট্রাকশন দিয়ে AI দিয়ে এডিট করো (Replicate)",
-    category: "image",
-    usages: "#edit [instruction] (image reply)",
-    cooldowns: 10
-  },
+const app = express();
+app.use(bodyParser.json());
 
-  onStart: async function ({ api, event, args }) {
-    const replicate_api = "r8_7t1HM8djF2wR8zclvg6A2KWwKhYqvg01j5gI3";
-    const imgbb_api = "d622c5729ca2a0b17123c4534b0c34ff";
+const PAGE_ACCESS_TOKEN = 'YOUR_PAGE_ACCESS_TOKEN';
+const VERIFY_TOKEN = 'YOUR_VERIFY_TOKEN';
 
-    const instruction = args.join(" ");
-    if (!event.messageReply || !event.messageReply.attachments || event.messageReply.attachments.length === 0)
-      return api.sendMessage("একটা ছবির রিপ্লাইতে `#edit [instruction]` লিখ।", event.threadID, event.messageID);
+// In-memory store for last command per user
+const userCommands = {};
 
-    if (!instruction) return api.sendMessage("তুই কী করতে চাস সেটা লিখ। যেমন: `#edit add a girl beside the boy`", event.threadID, event.messageID);
+app.get('/webhook', (req, res) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
 
-    const imageUrl = event.messageReply.attachments[0].url;
-    const imgPath = __dirname + `/cache/input_${event.messageID}.jpg`;
-    const outPath = __dirname + `/cache/output_${event.messageID}.jpg`;
-
-    try {
-      // Download image
-      const response = await axios.get(imageUrl, { responseType: "arraybuffer" });
-      fs.writeFileSync(imgPath, response.data);
-
-      api.sendMessage("ছবি এডিট হচ্ছে, একটু অপেক্ষা করো...", event.threadID);
-
-      // Upload to imgbb
-      const form = new FormData();
-      form.append("image", fs.readFileSync(imgPath).toString("base64"));
-      const imgbbUpload = await axios.post(`https://api.imgbb.com/1/upload?key=${imgbb_api}`, form, {
-        headers: form.getHeaders()
-      });
-      const uploadedUrl = imgbbUpload.data.data.url;
-
-      // Replicate request
-      const replicateRes = await axios.post("https://api.replicate.com/v1/predictions", {
-        version: "e2e06245e1f80cdeb65b01d6e6d3a3f01b2ec3dfeebafcb6d6c57641edc4ae99",
-        input: {
-          image: uploadedUrl,
-          prompt: instruction
-        }
-      }, {
-        headers: {
-          Authorization: `Token ${replicate_api}`,
-          "Content-Type": "application/json"
-        }
-      });
-
-      const statusUrl = replicateRes.data.urls.get;
-
-      // Wait for result
-      let outputUrl = null;
-      for (let i = 0; i < 20; i++) {
-        const poll = await axios.get(statusUrl, {
-          headers: { Authorization: `Token ${replicate_api}` }
-        });
-        if (poll.data.status === "succeeded") {
-          outputUrl = poll.data.output;
-          break;
-        }
-        await new Promise(res => setTimeout(res, 3000));
-      }
-
-      if (!outputUrl) return api.sendMessage("এডিট করা সম্ভব হয়নি বা টাইমআউট হয়ে গেছে।", event.threadID);
-
-      // Download and send edited image
-      const finalImg = await axios.get(outputUrl, { responseType: "arraybuffer" });
-      fs.writeFileSync(outPath, finalImg.data);
-
-      return api.sendMessage({
-        body: `তোর ইনস্ট্রাকশন: ${instruction}`,
-        attachment: fs.createReadStream(outPath)
-      }, event.threadID, () => {
-        fs.unlinkSync(imgPath);
-        fs.unlinkSync(outPath);
-      });
-
-    } catch (err) {
-      console.error(err);
-      return api.sendMessage("একটা সমস্যা হয়েছে! আবার চেষ্টা কর।", event.threadID);
-    }
+  if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+    res.status(200).send(challenge);
+  } else {
+    res.sendStatus(403);
   }
-};
+});
+
+app.post('/webhook', async (req, res) => {
+  const body = req.body;
+
+  if (body.object === 'page') {
+    for (const entry of body.entry) {
+      const webhookEvent = entry.messaging[0];
+      const senderId = webhookEvent.sender.id;
+
+      if (webhookEvent.message) {
+        const msg = webhookEvent.message;
+
+        if (msg.text && msg.text.startsWith('/edit')) {
+          const command = msg.text.replace('/edit', '').trim();
+          userCommands[senderId] = command;
+          sendText(senderId, `Okay, send me an image to apply: ${command}`);
+        } else if (msg.attachments) {
+          for (const att of msg.attachments) {
+            if (att.type === 'image') {
+              const imgUrl = att.payload.url;
+              const command = userCommands[senderId] || 'grayscale';
+              await processImage(senderId, imgUrl, command);
+            }
+          }
+        }
+      }
+    }
+    res.status(200).send('EVENT_RECEIVED');
+  } else {
+    res.sendStatus(404);
+  }
+});
+
+// Send simple text message
+function sendText(senderId, text) {
+  request({
+    uri: 'https://graph.facebook.com/v18.0/me/messages',
+    qs: { access_token: PAGE_ACCESS_TOKEN },
+    method: 'POST',
+    json: {
+      recipient: { id: senderId },
+      message: { text }
+    }
+  });
+}
+
+// Image processor
+async function processImage(senderId, imgUrl, command) {
+  const inputPath = path.join(__dirname, 'input.jpg');
+  const outputPath = path.join(__dirname, 'output.jpg');
+
+  try {
+    const img = await axios({ url: imgUrl, responseType: 'arraybuffer' });
+    fs.writeFileSync(inputPath, img.data);
+
+    let edit = sharp(inputPath);
+
+    // Apply command
+    switch (command) {
+      case 'grayscale':
+        edit = edit.grayscale();
+        break;
+      case 'rotate':
+        edit = edit.rotate(90);
+        break;
+      case 'blur':
+        edit = edit.blur(5);
+        break;
+      default:
+        sendText(senderId, `Unknown edit: ${command}`);
+        return;
+    }
+
+    await edit.toFile(outputPath);
+
+    // Send edited image
+    const file = fs.createReadStream(outputPath);
+    const formData = {
+      recipient: JSON.stringify({ id: senderId }),
+      message: JSON.stringify({ attachment: { type: 'image', payload: {} } }),
+      filedata: file
+    };
+
+    request.post({
+      uri: `https://graph.facebook.com/v18.0/me/messages`,
+      qs: { access_token: PAGE_ACCESS_TOKEN },
+      formData
+    }, (err) => {
+      if (err) console.error('Error sending image:', err);
+    });
+  } catch (err) {
+    console.error('Image processing failed:', err);
+    sendText(senderId, 'Failed to process image.');
+  }
+}
+
+app.listen(process.env.PORT || 3000, () => console.log('Bot is live'));
