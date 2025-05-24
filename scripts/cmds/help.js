@@ -49,7 +49,7 @@ module.exports = {
 
           const names = categories[category].commands.sort();
           names.forEach((item) => {
-            msg += `\n│💠${item}💠`;
+            msg += `\n│🎀${item}🎀`;
           });
 
           msg += `\n╰────────⭓`;
