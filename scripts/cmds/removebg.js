@@ -1,57 +1,71 @@
-const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
-
-const mahmud = async () => {
-  const base = await axios.get("https://raw.githubusercontent.com/mahmudx7/exe/main/baseApiUrl.json");
-  return base.data.mahmud;
+module.exports.config = {
+  name: "removebg",
+  version: "1.0.0",
+  hasPermssion: 0,
+  credits: "Arafat",
+  description: "Remove background from image using remove.bg API",
+  commandCategory: "image",
+  usages: "[reply image]",
+  cooldowns: 5,
+  aliases: ["rmbg"]
 };
 
-module.exports = {
-  config: {
-    name: "removebg",
-    aliases: ["rmbg", "rbg"],
-    version: "1.7",
-    author: "MahMUD",
-    countDown: 10,
-    role: 0,
-    category: "media",
-    guide: "{pn} [Reply to image]",
-  },
+module.exports.onStart = async function ({ api, event }) {
+  const axios = require("axios");
+  const fs = require("fs-extra");
+  const request = require("request");
+  const { messageID, threadID, type, messageReply } = event;
 
-  onStart: async function ({ message, event }) {
-    try {
-      if (event.type !== "message_reply")
-        return message.reply("❌ | Please reply to an image.");
+  if (type !== "message_reply" || !["photo", "sticker"].includes(messageReply.attachments[0]?.type)) {
+    return api.sendMessage("অনুগ্রহ করে একটি ছবিতে রিপ্লাই দিয়ে কমান্ড দিন।", threadID, messageID);
+  }
 
-      if (!event.messageReply.attachments || event.messageReply.attachments[0].type !== "photo")
-        return message.reply("No image found, reply to an image.");
+  const imageUrl = messageReply.attachments[0].url;
+  const inputPath = __dirname + `/cache/input.png`;
+  const outputPath = __dirname + `/cache/output.png`;
 
-      const imageUrl = event.messageReply.attachments[0].url;
-      const apiUrl = await mahmud();
+  const downloadImg = (uri, filename, callback) => {
+    request.head(uri, () => {
+      request(uri).pipe(fs.createWriteStream(filename)).on("close", callback);
+    });
+  };
 
-      const response = await axios.post(
-        `${apiUrl}/api/rmbg`,
-        { imageUrl },
-        { responseType: "stream" }
-      );
+  downloadImg(imageUrl, inputPath, () => {
+    const formData = {
+      image_file: fs.createReadStream(inputPath),
+      size: "auto",
+    };
 
-      const outputPath = path.resolve(__dirname, "cache", `${Date.now()}_rmbg.png`);
-      const writer = fs.createWriteStream(outputPath);
+    api.sendMessage("ছবির ব্যাকগ্রাউন্ড রিমুভ হচ্ছে, একটু অপেক্ষা করো...", threadID, async () => {
+      try {
+        const response = await axios({
+          method: "post",
+          url: "https://api.remove.bg/v1.0/removebg",
+          data: formData,
+          responseType: "arraybuffer",
+          headers: {
+            ...formData.getHeaders?.() || { "Content-Type": "multipart/form-data" },
+            "X-Api-Key": "pU61q1YWP8hu2RB2tDpuYFqR",
+          },
+        });
 
-      response.data.pipe(writer);
-
-      writer.on("finish", () => {
-        message.reply({ attachment: fs.createReadStream(outputPath) }).then(() => fs.unlinkSync(outputPath));
-      });
-
-      writer.on("error", (err) => {
-        console.error("Error saving image:", err);
-        message.reply("Error occurred while saving the image.");
-      });
-    } catch (error) {
-      console.error("Error calling API:", error);
-      message.reply("An error occurred while contacting the API.");
-    }
-  },
+        fs.writeFileSync(outputPath, response.data);
+        api.sendMessage(
+          {
+            body: "ব্যাকগ্রাউন্ড রিমুভ হয়ে গেছে!",
+            attachment: fs.createReadStream(outputPath),
+          },
+          threadID,
+          () => {
+            fs.unlinkSync(inputPath);
+            fs.unlinkSync(outputPath);
+          },
+          messageID
+        );
+      } catch (err) {
+        console.error(err);
+        api.sendMessage("ব্যাকগ্রাউন্ড রিমুভ করতে সমস্যা হয়েছে!", threadID, messageID);
+      }
+    });
+  });
 };
