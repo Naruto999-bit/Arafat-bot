@@ -8,7 +8,7 @@ const videoLinks = [
 
 module.exports = {
   config: {
-    name: "😭",
+    name: "Blove",
     version: "1.0.0",
     credits: "Arafat",
     description: "auto reply to 😭 message",
