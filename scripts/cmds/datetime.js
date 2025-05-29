@@ -21,7 +21,7 @@ onStart: async function ({ api, event, message }) {
     const senderID = event.senderID;
     
     const loadingMessage = await message.reply({
-      body: "THAM BETA 2 SEC ⟨MAHI⟩🙏",
+      body: "THAM BETA 2 SEC ⟨𝐀𝐫𝐚𝐟𝐚𝐭⟩🙏",
     });
     
      const frog = await global.utils.getStreamFromURL( "https://i.ibb.co/cFhc1my/4x9cfdbdpth81.gif");
