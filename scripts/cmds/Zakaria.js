@@ -29,8 +29,8 @@ module.exports = {
     author: "Arafat Da",
     countDown: 5,
     role: 0,
-    shortDescription: "📥 ZMAK থেকে ভিডিও আনো",
-    longDescription: "📥 YouTube চ্যানেল @zmak708 থেকে র‍্যান্ডম ভিডিও আনো",
+    shortDescription: "📥 Zmak708 ইউটিউব থেকে রেন্ডম ভিডিও আনো",
+    longDescription: "📥 YouTube চ্যানেল zmak708 থেকে রেন্ডম ভিডিও আনো",
     category: "media",
     guide: "{pn} অথবা {pn} zmak"
   },
@@ -39,24 +39,29 @@ module.exports = {
     api.setMessageReaction("⏳", event.messageID, () => {}, true);
 
     try {
-      const channelHandle = "@zmak708";
+      const channelHandle = "zmak708"; // @ বাদ দিয়ে শুধু হ্যান্ডেল
       const apiBase = await baseApiUrl();
 
-      // চ্যানেল নাম দিয়ে ভিডিও সার্চ
+      // চ্যানেল হ্যান্ডেল দিয়ে ভিডিও সার্চ
       const searchRes = await axios.get(`${apiBase}/ytFullSearch?songName=${channelHandle}`);
       const videos = searchRes.data;
 
       if (!videos || videos.length === 0)
         return message.reply("❌ কোনো ভিডিও পাওয়া যায়নি!");
 
-      // র‍্যান্ডম ভিডিও বেছে নেওয়া
+      // র‍্যান্ডম ভিডিও নির্বাচন
       const randomVideo = videos[Math.floor(Math.random() * videos.length)];
       const { id, title } = randomVideo;
 
-      // ডাউনলোড লিংক আনা
+      // ভিডিও ডাউনলোড লিংক আনা
       const { data: { downloadLink, quality } } = await axios.get(`${apiBase}/ytDl3?link=${id}&format=mp4`);
 
-      const filePath = path.join(__dirname, "cache", "zmakVideo.mp4");
+      if (!downloadLink) return message.reply("❌ ভিডিও ডাউনলোড লিংক পাওয়া যায়নি!");
+
+      const dir = path.join(__dirname, "cache");
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir);
+
+      const filePath = path.join(dir, "zmakVideo.mp4");
       const stream = await downloadStream(downloadLink, filePath);
 
       await message.reply({
