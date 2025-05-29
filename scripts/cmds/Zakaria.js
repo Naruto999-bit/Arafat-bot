@@ -2,64 +2,74 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 
+const baseApiUrl = async () => {
+  const base = await axios.get("https://raw.githubusercontent.com/Mostakim0978/D1PT0/refs/heads/main/baseApiUrl.json");
+  return base.data.api;
+};
 
-const channelLinks = [ // add channel link below from which channel you want to get video
-  
-  "https://youtube.com/@zmak708",
-  // Add more if you want
-];
+async function downloadStream(url, filePath) {
+  const response = await axios({
+    url,
+    method: 'GET',
+    responseType: 'arraybuffer'
+  });
+
+  const sizeInMB = Buffer.byteLength(response.data) / (1024 * 1024);
+  if (sizeInMB > 50) throw new Error("⭕ ভিডিওটা ৫০MB এর বেশি। ছোট একটা ভিডিও ট্রাই কর।");
+
+  fs.writeFileSync(filePath, Buffer.from(response.data));
+  return fs.createReadStream(filePath);
+}
 
 module.exports = {
   config: {
-    name: "Zakaria",
-    aliases: ["zakaria"," zmak"], 
-    author: "Arafat",
+    name: "zakaria",
+    aliases: ["zmak"],
     version: "1.0",
-    cooldowns: 5,
+    author: "Arafat Da",
+    countDown: 5,
     role: 0,
-    shortDescription: "Get a random channel video",
-    longDescription: "Get a random youtube channel edits video.",
-    category: "utility",
-    guide: "{p}Zakaria",
+    shortDescription: "📥 ZMAK থেকে ভিডিও আনো",
+    longDescription: "📥 YouTube চ্যানেল @zmak708 থেকে র‍্যান্ডম ভিডিও আনো",
+    category: "media",
+    guide: "{pn} অথবা {pn} zmak"
   },
 
-  onStart: async function ({ api, event, args, message }) {
-    api.setMessageReaction("✨", event.messageID, (err) => {}, true);
+  onStart: async function ({ api, event, message }) {
+    api.setMessageReaction("⏳", event.messageID, () => {}, true);
 
     try {
-    
-      const randomChannelLink = channelLinks[Math.floor(Math.random() * channelLinks.length)];
+      const channelHandle = "@zmak708";
+      const apiBase = await baseApiUrl();
 
-      
-      const apiResponse = await axios.get(`https://god-kshitiz.vercel.app/channel?link=${encodeURIComponent(randomChannelLink)}`);
+      // চ্যানেল নাম দিয়ে ভিডিও সার্চ
+      const searchRes = await axios.get(`${apiBase}/ytFullSearch?songName=${channelHandle}`);
+      const videos = searchRes.data;
 
-    
-      const channelVideoUrl = apiResponse.data.urls[0];
+      if (!videos || videos.length === 0)
+        return message.reply("❌ কোনো ভিডিও পাওয়া যায়নি!");
 
-      
-      const videoResponse = await axios.get(channelVideoUrl, { responseType: "stream" });
+      // র‍্যান্ডম ভিডিও বেছে নেওয়া
+      const randomVideo = videos[Math.floor(Math.random() * videos.length)];
+      const { id, title } = randomVideo;
 
-     
-      const tempVideoPath = path.join(__dirname, "cache", `channel.mp4`);
+      // ডাউনলোড লিংক আনা
+      const { data: { downloadLink, quality } } = await axios.get(`${apiBase}/ytDl3?link=${id}&format=mp4`);
 
-      const writer = fs.createWriteStream(tempVideoPath);
-      videoResponse.data.pipe(writer);
+      const filePath = path.join(__dirname, "cache", "zmakVideo.mp4");
+      const stream = await downloadStream(downloadLink, filePath);
 
-      writer.on("finish", async () => {
-       
-        const stream = fs.createReadStream(tempVideoPath);
-
-       
-        message.reply({
-          body: "",
-          attachment: stream,
-        });
-
-        api.setMessageReaction("✅", event.messageID, (err) => {}, true);
+      await message.reply({
+        body: `🎬 ${title}\n📥 Quality: ${quality}`,
+        attachment: stream
       });
-    } catch (error) {
-      console.error(error);
-      message.reply("Sorry, an error occurred.");
+
+      fs.unlinkSync(filePath);
+      api.setMessageReaction("✅", event.messageID, () => {}, true);
+    } catch (err) {
+      console.error(err);
+      message.reply("❌ ভিডিও আনতে সমস্যা হচ্ছে, পরে আবার চেষ্টা করো!");
+      api.setMessageReaction("❌", event.messageID, () => {}, true);
     }
   }
 };
