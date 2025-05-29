@@ -1,43 +1,44 @@
-const axios = require("axios");
-const baseApiUrl = async () => {
+const axios = require('axios');
+
+const csbApi = async () => {
   const base = await axios.get(
-    `https://raw.githubusercontent.com/Mostakim0978/D1PT0/refs/heads/main/baseApiUrl.json`,
+    "https://raw.githubusercontent.com/nazrul4x/Noobs/main/Apis.json"
   );
-  return base.data.api;
+  return base.data.csb;
 };
 
-(module.exports.config = {
-  name: "imgur",
-  version: "6.9",
-  author: "𝗦𝗵𝗔𝗻",
-  countDown: 5,
-  role: 0,
-  category: "media",
-  description: "convert image/video into Imgur link",
-  category: "𝗠𝗘𝗗𝗜𝗔",
-  usages: "reply [image, video]",
-}),
-  (module.exports.onStart = async function ({ api, event }) {
-    const dip = event.messageReply?.attachments[0]?.url;
-    if (!dip) {
-      return api.sendMessage(
-        "Please reply to an image or video.",
-        event.threadID,
-        event.messageID,
-      );
+module.exports = {
+    config: {
+        name: "imgur",
+        version: "1.0.0",
+        role: 0,
+        author: "♡ Nazrul ♡",
+        shortDescription: "imgur upload",
+        countDown: 0,
+        category: "imgur",
+        guide: {
+            en: '[reply to image]'
+        }
+    },
+
+    onStart: async ({ api, event }) => {
+        let link2;
+
+        if (event.type === "message_reply" && event.messageReply.attachments.length > 0) {
+            link2 = event.messageReply.attachments[0].url;
+        } else if (event.attachments.length > 0) {
+            link2 = event.attachments[0].url;
+        } else {
+            return api.sendMessage('No attachment detected. Please reply to an image.', event.threadID, event.messageID);
+        }
+
+        try {
+            const res = await axios.get(`${await csbApi()}/nazrul/imgur?link=${encodeURIComponent(link2)}`);
+            const link = res.data.uploaded.image;
+            return api.sendMessage(`\n\n${link}`, event.threadID, event.messageID);
+        } catch (error) {
+            console.error("Error uploading image to Imgur:", error);
+            return api.sendMessage("An error occurred while uploading the image to Imgur.", event.threadID, event.messageID);
+        }
     }
-    try {
-      const res = await axios.get(
-        `${await baseApiUrl()}/imgur?url=${encodeURIComponent(dip)}`,
-      );
-      const dipto = res.data.data;
-      api.sendMessage(dipto, event.threadID, event.messageID);
-    } catch (error) {
-      console.error(error);
-      return api.sendMessage(
-        "Failed to convert image or video into link.",
-        event.threadID,
-        event.messageID,
-      );
-    }
-  });
+};
